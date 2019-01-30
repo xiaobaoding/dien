@@ -1,3 +1,18 @@
+# Copyright (C) 2016-2018 Alibaba Group Holding Limited
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 # Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +57,7 @@ from tensorflow.python.util import nest
 
 # pylint: disable=protected-access
 _concat = rnn_cell_impl._concat
-_like_rnncell = rnn_cell_impl._like_rnncell
+assert_like_rnncell = rnn_cell_impl.assert_like_rnncell
 # pylint: enable=protected-access
 
 
@@ -386,11 +401,9 @@ def bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs, sequence_length=None,
     TypeError: If `cell_fw` or `cell_bw` is not an instance of `RNNCell`.
   """
 
-  if not _like_rnncell(cell_fw):
-    raise TypeError("cell_fw must be an instance of RNNCell")
-  if not _like_rnncell(cell_bw):
-    raise TypeError("cell_bw must be an instance of RNNCell")
-
+  
+  assert_like_rnncell("cell_fw", cell_fw)
+  assert_like_rnncell("cell_bw", cell_bw)
   with vs.variable_scope(scope or "bidirectional_rnn"):
     # Forward direction
     with vs.variable_scope("fw") as fw_scope:
@@ -549,8 +562,8 @@ def dynamic_rnn(cell, inputs, att_scores=None, sequence_length=None, initial_sta
     TypeError: If `cell` is not an instance of RNNCell.
     ValueError: If inputs is None or an empty list.
   """
-  if not _like_rnncell(cell):
-    raise TypeError("cell must be an instance of RNNCell")
+
+  assert_like_rnncell("cell", cell)
 
   # By default, time_major==False and inputs are batch-major: shaped
   #   [batch, time, depth]
@@ -972,8 +985,7 @@ def raw_rnn(cell, loop_fn,
       a `callable`.
   """
 
-  if not _like_rnncell(cell):
-    raise TypeError("cell must be an instance of RNNCell")
+  assert_like_rnncell("cell", cell)
   if not callable(loop_fn):
     raise TypeError("loop_fn must be a callable")
 
@@ -1170,8 +1182,7 @@ def static_rnn(cell,
       (column size) cannot be inferred from inputs via shape inference.
   """
 
-  if not _like_rnncell(cell):
-    raise TypeError("cell must be an instance of RNNCell")
+  assert_like_rnncell("cell", cell)
   if not nest.is_sequence(inputs):
     raise TypeError("inputs must be a sequence")
   if not inputs:
@@ -1451,3 +1462,4 @@ def static_bidirectional_rnn(cell_fw,
       structure=output_fw, flat_sequence=flat_outputs)
 
   return (outputs, output_state_fw, output_state_bw)
+

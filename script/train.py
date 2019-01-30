@@ -4,6 +4,7 @@ import tensorflow as tf
 from model import *
 import time
 import random
+import os
 import sys
 from utils import *
 
@@ -102,12 +103,23 @@ def eval(sess, test_data, model, model_path):
         model.save(sess, model_path)
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum
 
+def get_data_prefix():
+    #return xdl.get_config('data_dir')
+    return "../data/"
+
+train_file = os.path.join(get_data_prefix(), "local_train_splitByUser")
+test_file = os.path.join(get_data_prefix(), "local_test_splitByUser")
+uid_voc = os.path.join(get_data_prefix(), "uid_voc.pkl")
+mid_voc = os.path.join(get_data_prefix(), "mid_voc.pkl")
+cat_voc = os.path.join(get_data_prefix(), "cat_voc.pkl")
+item_info = os.path.join(get_data_prefix(), 'item-info')
+reviews_info = os.path.join(get_data_prefix(), 'reviews-info')
 def train(
-        train_file = "local_train_splitByUser",
-        test_file = "local_test_splitByUser",
-        uid_voc = "uid_voc.pkl",
-        mid_voc = "mid_voc.pkl",
-        cat_voc = "cat_voc.pkl",
+        train_file = train_file,
+        test_file = test_file,
+        uid_voc = uid_voc,
+        mid_voc = mid_voc,
+        cat_voc = cat_voc, 
         batch_size = 128,
         maxlen = 100,
         test_iter = 100,
@@ -118,6 +130,7 @@ def train(
     model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
     best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
+    print("model type is {0}".format(model_type))
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False)
         test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
