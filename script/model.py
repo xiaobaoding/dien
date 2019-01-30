@@ -139,6 +139,19 @@ class Model(object):
                 self.lr: inps[8],
             })
             return loss, accuracy, 0
+    def train_with_metadata(self, sess, inps,options , metadata):
+        loss, accuracy, _ = sess.run([self.loss, self.accuracy, self.optimizer], feed_dict={
+            self.uid_batch_ph: inps[0],
+            self.mid_batch_ph: inps[1],
+            self.cat_batch_ph: inps[2],
+            self.mid_his_batch_ph: inps[3],
+            self.cat_his_batch_ph: inps[4],
+            self.mask: inps[5],
+            self.target_ph: inps[6],
+            self.seq_len_ph: inps[7],
+            self.lr: inps[8],
+        }, options=options, run_metadata=metadata)
+        return loss, accuracy, 0
 
     def calculate(self, sess, inps):
         if self.use_negsampling:

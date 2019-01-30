@@ -7,6 +7,7 @@ import random
 import os
 import sys
 from utils import *
+from tensorflow.python.client import timeline
 
 EMBEDDING_DIM = 18
 HIDDEN_SIZE = 18 * 2
@@ -127,10 +128,12 @@ def train(
         model_type = 'DNN',
 	seed = 2,
 ):
-    model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
-    best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
+    model_path = "../ckpt/" + model_type + str(seed)
+    best_model_path= model_path
+    #best_model_path = "../ckpt/" + model_type + str(seed)
     gpu_options = tf.GPUOptions(allow_growth=True)
-    print("model type is {0}".format(model_type))
+
+    print("========model type is {0}=====".format(model_type))
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False)
         test_data = DataIterator(test_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
@@ -139,7 +142,7 @@ def train(
             model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'PNN':
             model = Model_PNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
-	elif model_type == 'Wide':
+        elif model_type == 'Wide':
             model = Model_WideDeep(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
             model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
@@ -151,16 +154,19 @@ def train(
             model = Model_DIN_V2_Gru_QA_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-vec-attGru':
             model = Model_DIN_V2_Gru_Vec_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
-	elif model_type == 'DIEN':
+        elif model_type == 'DIEN':
             model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         else:
             print ("Invalid model_type : %s", model_type)
             return
         # model = Model_DNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+        # add tensordboard & timeline
+        train_writer = tf.summary.FileWriter(model_path, sess.graph)
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         sys.stdout.flush()
-        print('                                                                                      test_auc: %.4f ---- test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+        print ('======start to train =========')
+        #print('test_auc: %.4f ---- test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
         sys.stdout.flush()
 
         start_time = time.time()
@@ -181,16 +187,27 @@ def train(
                 if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                    print('                                                                                          test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+                    #print('test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
                     loss_sum = 0.0
                     accuracy_sum = 0.0
                     aux_loss_sum = 0.0
                 if (iter % save_iter) == 0:
+                    print ('==print run metadata and timeline ')
+                    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+                    loss, acc, aux_loss = model.train_with_metadata(sess,
+                                                      [uids, mids, cats, mid_his, cat_his, mid_mask, target, sl, lr,
+                                                       noclk_mids, noclk_cats],run_options,run_metadata)
+                    train_writer.add_run_metadata(run_metadata, 'step%03d' % iter)
+                    trace = timeline.Timeline(step_stats=run_metadata.step_stats)
+                    trace_writer = open(model_path + '/chrome-trace-' + str(iter), 'w')
+                    trace_writer.write(trace.generate_chrome_trace_format(show_memory = True))
+                    iter += 1
                     print('save model iter: %d' %(iter))
                     model.save(sess, model_path+"--"+str(iter))
             lr *= 0.5
 
-def test(
+def run_tests(
         train_file = "local_train_splitByUser",
         test_file = "local_test_splitByUser",
         uid_voc = "uid_voc.pkl",
@@ -213,7 +230,7 @@ def test(
         elif model_type == 'PNN':
             model = Model_PNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'Wide':
-	    model = Model_WideDeep(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_WideDeep(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
             model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-att-gru':
@@ -224,7 +241,7 @@ def test(
             model = Model_DIN_V2_Gru_QA_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-vec-attGru':
             model = Model_DIN_V2_Gru_Vec_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
-	elif model_type == 'DIEN':
+        elif model_type == 'DIEN':
             model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         else:
             print ("Invalid model_type : %s", model_type)
@@ -243,7 +260,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'train':
         train(model_type=sys.argv[2], seed=SEED)
     elif sys.argv[1] == 'test':
-        test(model_type=sys.argv[2], seed=SEED)
+        run_tests(model_type=sys.argv[2], seed=SEED)
     else:
         print('do nothing...')
 
